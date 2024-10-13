@@ -25,14 +25,14 @@ should be easy enough to be understood even with 0 Rust experience and you can
 (and should) follow by writing the code step by step in any language you prefer.
 
 ## What is TDD about, really? And why should we care?
-First of all, testing is a natural and mandatory endeavour while writing software, think about
-it: what's the first thing you did right after you wrote your first program?
-Well, I bet you probably ran it to see if it worked, aye? And then you wrote
-your second program and did the same. Then, if you wrote enough software, at
-some point you wrote that big(ger) program where simply running it and manually
-inspecting if the behaviour was correct, wasn't efficient enough any more, so
-you either spent too much time looking around and solving bugs, or you simply
-gave up on them.
+First of all, testing is a natural and mandatory endeavour while writing
+software, think about it: what's the first thing you did right after you
+wrote your first program? Well, I bet you probably ran it to see if it worked,
+aye? And then you wrote your second program and did the same. Then, if you
+wrote enough software, at some point you wrote that big(ger) program where
+simply running it and manually inspecting if the behaviour was correct, wasn't
+efficient enough any more, so you either spent too much time looking around and
+solving bugs, or you simply gave up on them.
 
 Software engineering in general is the discipline to manage the development of
 software and to ensure its reliability throughout its lifecycle. And software
@@ -60,9 +60,9 @@ fn my_greatest_test() {
 - Is it any good at all? No!
 
 This test never fails, regardless of what we write in our function, so we cannot
-realy on it at all.
+rely on it at all.
 
-Why write the tests before the code you want to test though? If you first
+Why write the tests before the code you want to test, though? If you first
 write your program and only then write the tests, you're going to be biased
 by what you have already written. This way, instead, you see what the user of
 your program is going to see for the first time. You will be unbiased and look
@@ -71,28 +71,26 @@ letter to Santa:
 ```
 Dear Santa,
 since I've been so very good this year, I'd love to have a function that takes
-an array of numbers and gives me back to me with its elements sorted from the
+an array of numbers and gives it back to me with its elements sorted from the
 smallest to the largest.
 
 Thanks a lot, yours,
 Seb.
 ```
 Then, sadly, we are big boys and gals now and we are our own Santas, so we have
-to write our own code and satisfy our own wishes, don't we? Maybe not for long:
-have you ever heard of that thing called GenAI, all the cool kids are talking
-about nowadays? Just a speculation from someone ignorant on the matter, but
-maybe this could be the way to use it if it ever becomes good: you write the
-tests, it writes the code to satisfy those tests. But in order to do this and in
-order to still deliver high quality software we need to be good at writing tests
-and we need to be good at refactoring ugly code. Infact this is what I will do
-for the examples provided.
+to write our own code and satisfy our own wishes.
+
+In short, we should care about tests in general and about TDD in particular,
+because this improves the quality of the software we write and it lowers the
+cost of maintenance of a mature project: adding new features in a project
+where TDD has been applied, is significantly less expensive because with a
+good coverage, the chance of introducing regressions when changing something,
+is lower.
 
 ## Our first TDD attempt.
-For our first practical example, let's indeed take the letter to Santa we wrote
-above. Let's start a new project from scratch and let's write our favourite
-implementation of a sorting algorithm. But... Wait! we are doing TDD! We are
-not going to even think about the implementation yet. We want to translate the
-requirements into a test first.
+For our first practical example, let's indeed take the letter to Santa we
+wrote above. Let's start a new project from scratch and let's translate our
+requirements into tests:
 ```Rust
 /// sorting.rs
 #[test]
@@ -114,14 +112,15 @@ definition, so that we are able to run it.
 fn sort(arr: &mut [u8]) {}
 ```
 Our function does exactly nothing, but the test is running and it's failing
-as we expect and want. At this point, we could also thing about the API: do
+as we expect and want. At this point, we could also think about the API: do
 we like it like this? Maybe we would prefer to call our sorting function as
-`arr.sort()`, for example. So we can really shape the way our code presents
-itself even before writing it. In this case we are fine the way it is.
+`arr.sort()`, or maybe we would like to generalize it and accept any type,
+rather than just u8. So we can really shape the way our code presents itself
+even before writing it. For this simple example, we can be happy with our
+current definition.
 
-We're really lazy, so let's ask some GenAI model to generate a code that passes
-the test. By passing the test and the function definition and asking for bubble
-sort, this is what I got:
+Now that we wrote the test and we saw it fail, let's write the minimum amount of
+code that passes the test:
 ```Rust
 /// sorting.rs
 fn sort(arr: &mut [u8]) {
@@ -135,13 +134,12 @@ fn sort(arr: &mut [u8]) {
     }
 }
 ```
-This passes the test already and I don't see any meaningful refactorings we can
-do, it's a simple example anyway, so we can be satisfied.
+At this point we could do some refactorings and improve the code, while keeping
+the test green. In this simple example there isn't much to do so we are done.
 
-## Dealing with GenAS, or GenAE.
-Is our test really that good though? What if we are letting our artificial
-stupidity generate the code? And what about artificial evil? Can we rely on the
-test we wrote? Not really! Look at this implementation:
+## Dealing with evil stupidity.
+Is our test really that good though? Can we rely on the test we wrote? Not
+really! Look at this implementation:
 ```Rust
 /// sorting.rs
 fn sort(arr: &mut [u8]) {
@@ -149,22 +147,76 @@ fn sort(arr: &mut [u8]) {
   arr.copy_from_slice(&sorted);
 }
 ```
-Our test is passing, however, it didn't save us from the stupidity and/or evil
-of this implementation. We can agree that our test was garbage to begin with.
-Now, you can imagine this doesn't happen, nobody is really that evil or stupid and, sure, it doesn't for problems as
-simple as this. But there are cases where the situation is not so clear, 
+Our test is passing, however, it didn't save us from the evil stupidity of this
+implementation. We can agree that our test was not as reliable as we thought.
 
-## Overall architecture.
+Now, you can imagine this doesn't happen, nobody is really that evil or stupid
+and, sure, it doesn't happen for problems as simple as this. But there are cases
+where the situation is not so clear, or where there are edge cases not as easy
+to spot. So, if possible, we would like to find a better way to write tests.
+
+A better way exists and it's called property testing: instead of hardcoding
+inputs and outputs for our tests we should prove the algorithm has the
+properties we expect it to have. What are the properties of a sorting algorithm
+though?
+
+The main property is the following: a sorting algorithm S applied to an input
+array A of length n produces a sorted array A' such that: A'=S(A) and A[i] <=
+A[i+1] for any i belonging to the set {0, 1, ..., n-1}. In other words: every
+element of the array, is smaller than all other element with a largest index.
+
+Let's translate this into a test:
+```Rust
+#[test]
+fn my_sorting_function_works_v2() {
+  (0..100).into_iter().for_each( |_| {
+    let rng = random::from_thread_rng();
+    let len = rng.next_range(10..100);
+    let mut arr = Vec::with_capacity(len);
+    for _ in 0..len {
+      arr.push(rng.next_int());
+    }
+
+    sort(&mut arr);
+
+    for i in 0..len-1 {
+      assert!(arr[i] <= arr[i + 1]);
+    }
+  });
+}
+```
+In this test we generate an array with a random number of elements, where
+all the elements are also random, then we apply our sorting function and we
+simply verify that each element, is less or equal to the next. We run the test
+100 times, because it's a reasonable compromise between running the infinite
+combinations of random arrays and only trying one combination. This way each
+time we run the test we are exploring the whole space of possible inputs and if
+there is an edge case we will eventually find it. There is also no way to write
+bad code that only passes the test for specific inputs.
+
+This is great and when possible all tests should be done this way. However, the
+main limitation of this approach is that it's not always so easy to reason about
+the properties of a specific function. Property testing is a bit of a rabbit
+hole on its own, so it's worth covering it in another post, I wanted to briefly
+touch it because the reader should be aware of it and because I'll use it in
+the examples.
+
+## A better architecture.
+One of the main objections to TDD, other than "it wastes development time", is
+that it's not really applicable when dealing, for example, with databases, or
+when the file system or HTTP calls are involved. And it's partially true. TDD
+works really well when writing unit tests, it gets a bit harder when writing
+integration tests. I found that leveraging a good architecture can improve this,
+so I want to briefly also cover it.
 
 Almost every program is a mix of inputs, outputs, business logic, external
 dependencies, data structures and operations on those data structures. These
 are often mixed and matched together without a particular criterion by both
 beginners and experts, however, finding a structured way to treat them will
-make our life easier later on, so I want to briefly describe my approach.
-The architectural pattern I find working for me is nothing new and it's based
-on some already well known theory: onion architecture, clean architecture,
-hexagonal architecture... Call it however you want, but it basically boils down
-to this diagram:
+make our life easier later on. The architectural pattern I find working for
+me is nothing new and it's based on some already well known theory: onion
+architecture, clean architecture, hexagonal architecture... Call it however you
+want, but it basically boils down to this diagram:
 
 ![Clean Architecture](/blog/arch.png "Clean Architecture")
 
@@ -187,18 +239,17 @@ Finally, it's important to distinguish the layer through which our application
 interacts with external systems: be it the file system, a database, an HTTP
 endpoint... anything our application actively needs to call. And it's also
 fundamentally important to stress that this layer has to be always be called
-through an interface (or equivalent construct in the language you're using).
+through an interface (or equivalent construct in the language you're using),
+because we will need to mock it.
 
 ## Testing strategy.
-
-We structured the application this way mainly because this will make our life
-easier when writing tests. Let's go layer by layer to see the testing strategy
-adopted.
+Structuring the application this way will make our life easier when writing
+tests. Let's go layer by layer to see the testing strategy we can adopt.
 
 In the domain layer, we have no external dependencies, so we can abuse textbook
-unit testing.
+unit testing as described above.
 
-In the bysiness logic layer, we call external dependencies, but we do so through
+In the business logic layer, we call external dependencies, but we do so through
 interfaces, so we can again abouse unit testing, with the added burden of
 mocking all those interfaces.
 
